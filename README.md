@@ -4,14 +4,16 @@ TP-SQV é um app web instalável (PWA) de teleprompter para iPhone, feito para u
 
 ## O que ele faz
 
-- **Scripts**: lista de roteiros, criar, editar, excluir em lote, importar `.txt`, exportar e restaurar backup `.json`.
+- **Scripts**: lista com busca, deslizar para excluir, menu por roteiro (abrir, editar, renomear, duplicar, excluir), seleção em lote, importar `.txt`, exportar e restaurar backup `.json`.
+- **Editor**: botão Colar, Limpar, contagem de palavras e tempo estimado de leitura (160 palavras/min).
 - **Teleprompter**: texto grande em negrito (fonte Jost), linha de leitura com marcador, toque para iniciar/pausar, arraste para reposicionar.
 - **Ajustes**: tamanho da fonte, velocidade, contagem regressiva, estimativa de duração (`~mm:ss`).
 - **Modo voz**: o texto acompanha a sua fala (reconhecimento de voz em pt-BR). Palavras lidas escurecem, a palavra atual fica sublinhada. Tolera palavras puladas e pequenas variações. O ajuste **Antecipação da voz** (0 a 5 palavras, padrão 2) compensa o atraso do reconhecimento: aumente se a marcação ficar atrás da sua fala.
   - **Improvisos são bem-vindos**: palavras fora do roteiro (“não é?”, “olha só”…) não movem o texto; o app espera você voltar ao roteiro e segue de onde parou. Uma palavra isolada só avança se estiver logo à frente; saltos maiores exigem duas palavras seguidas batendo.
   - **Voltar ou pular no texto**: arraste com o dedo (ou use reiniciar/voltar/avançar) e a palavra na linha de leitura vira a posição atual. Sem rolar, o app só pula se seis palavras seguidas não baterem e as três últimas aparecerem em um único lugar do roteiro.
 - **Cores**: cor do texto, espelhar (para vidro de teleprompter), negrito, posição da linha de leitura, margem lateral.
-- **Câmera**: pré-visualização da câmera frontal (pede 4K/60 fps, usa o melhor que o aparelho der), texto no alto perto da lente, botão de gravar, trocar câmera.
+- **Câmera**: pré-visualização da câmera frontal (pede 4K/60 fps, usa o melhor que o aparelho der), texto em uma caixa no alto, perto da lente, com alça para ajustar a altura e transparência do fundo regulável (em Cores). Botões do topo em faixa própria; barra de ferramentas junto ao botão de gravar. Durante a gravação os controles somem (um toque na imagem traz de volta por 4 s).
+- **Paisagem**: layout adaptado ao iPhone deitado, na leitura e no modo câmera.
 - **Rascunhos de vídeo**: gravações ficam guardadas no aparelho (IndexedDB). **Salvar nas Fotos** abre a folha do iOS só com o vídeo, com “Salvar Vídeo” a um toque; **Compartilhar** abre a folha completa. Fora do iPhone, “Salvar” baixa o arquivo.
 - **Google Docs**: os documentos da pasta `Teleprompter` do seu Drive aparecem na lista de roteiros (veja abaixo).
 - Mantém a tela acesa durante a leitura (Wake Lock). Funciona sem internet depois de instalado.

@@ -34,7 +34,7 @@ const Store = {
   load() { try { return JSON.parse(localStorage.getItem(this.key) || '[]'); } catch { return []; } },
   save(list) { try { localStorage.setItem(this.key, JSON.stringify(list)); } catch { toast('Não consegui salvar (armazenamento cheio?)'); } },
 };
-const defaultSettings = { fontSize: 32, speed: 10, countdown: 3, voice: false, voiceLead: 2, syncUrl: '', mirror: false, bold: true, color: '#ffffff', linePos: 33, margin: 24, rear: false };
+const defaultSettings = { fontSize: 32, speed: 10, countdown: 3, voice: false, voiceLead: 2, syncUrl: '', camBoxHeight: 34, camBoxOpacity: 78, mirror: false, bold: true, color: '#ffffff', linePos: 33, margin: 24, rear: false };
 let settings = { ...defaultSettings };
 try { settings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('tp.settings') || '{}') }; } catch { }
 function saveSettings() { try { localStorage.setItem('tp.settings', JSON.stringify(settings)); } catch { } }
@@ -57,24 +57,89 @@ function showView(name) {
   if (name !== 'prompter') Prompter.leave();
 }
 
+// ---------- modal genérico (substitui alert/confirm/prompt) ----------
+function modal({ title, text, input, placeholder, value, actions }) {
+  return new Promise(resolve => {
+    const m = $('#modal'), inp = $('#modal-input'), box = $('#modal-actions');
+    $('#modal-title').textContent = title || '';
+    $('#modal-text').textContent = text || ''; $('#modal-text').classList.toggle('hidden', !text);
+    inp.classList.toggle('hidden', !input); inp.placeholder = placeholder || ''; inp.value = value || '';
+    box.innerHTML = '';
+    const close = v => { m.classList.add('hidden'); resolve(v); };
+    for (const a of actions) {
+      const b = document.createElement('button'); b.className = 'text-btn' + (a.primary ? ' primary' : '') + (a.danger ? ' danger' : '');
+      b.textContent = a.label; b.addEventListener('click', () => close(a.value === undefined ? a.label : (input && a.primary ? inp.value : a.value)));
+      box.appendChild(b);
+    }
+    m.onclick = e => { if (e.target === m) close(null); };
+    m.classList.remove('hidden');
+    if (input) setTimeout(() => { inp.focus(); inp.select(); }, 50);
+  });
+}
+const confirmModal = (title, text, label = 'Excluir') => modal({ title, text, actions: [{ label, danger: true, value: true }, { label: 'Cancelar', value: false }] });
+
 // ---------- lista ----------
 const List = {
   selecting: false, selected: new Set(),
+  query: '',
   render() {
     const ul = $('#script-list'); ul.innerHTML = '';
-    const sorted = [...scripts].sort((a, b) => b.updatedAt - a.updatedAt);
-    if (!sorted.length) { ul.innerHTML = '<li class="empty">Nenhum roteiro ainda. Toque no lápis para criar o primeiro.</li>'; return; }
+    const q = normalizeWord(this.query.replace(/\s+/g, ' ')) ; // busca sem acentos/maiúsculas
+    let sorted = [...scripts].sort((a, b) => b.updatedAt - a.updatedAt);
+    if (this.query.trim()) sorted = sorted.filter(s => normalizeWord((s.title || '') + ' ' + s.body).includes(q));
+    if (!sorted.length) { ul.innerHTML = `<li class="empty">${this.query.trim() ? 'Nenhum roteiro combina com a busca.' : 'Nenhum roteiro ainda. Toque no lápis para criar o primeiro.'}</li>`; return; }
     for (const s of sorted) {
       const li = document.createElement('li'); li.dataset.id = s.id;
       if (this.selected.has(s.id)) li.classList.add('sel');
-      li.innerHTML = `<span class="cb"></span><span class="t"></span>${s.source === 'gdocs' ? '<svg class="src" aria-label="Google Docs"><use href="#i-doc"/></svg>' : ''}<span class="chev">›</span>`;
+      li.innerHTML = `<button class="swipe-del" aria-label="Excluir">Excluir</button><div class="row"><span class="cb"></span><span class="t"></span>${s.source === 'gdocs' ? '<svg class="src" aria-label="Google Docs"><use href="#i-doc"/></svg>' : ''}<button class="row-menu" aria-label="Mais ações"><svg><use href="#i-dots"/></svg></button><span class="chev">›</span></div>`;
       li.querySelector('.t').textContent = s.title || fmtDate(s.createdAt);
-      li.addEventListener('click', () => {
+      li.querySelector('.row-menu').addEventListener('click', e => { e.stopPropagation(); this.rowActions(s); });
+      li.querySelector('.swipe-del').addEventListener('click', e => { e.stopPropagation(); this.remove([s.id]); });
+      const row = li.querySelector('.row');
+      row.addEventListener('click', () => {
+        if (li.classList.contains('open')) { li.classList.remove('open'); return; }
         if (this.selecting) { this.selected.has(s.id) ? this.selected.delete(s.id) : this.selected.add(s.id); li.classList.toggle('sel'); return; }
         Prompter.open(s.id);
       });
+      this.bindSwipe(li, row);
       ul.appendChild(li);
     }
+  },
+  bindSwipe(li, row) { // deslizar para a esquerda revela Excluir
+    let x0 = 0, y0 = 0, dx = 0, horizontal = null;
+    row.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; horizontal = null; row.style.transition = 'none'; }, { passive: true });
+    row.addEventListener('touchmove', e => {
+      const x = e.touches[0].clientX - x0, y = e.touches[0].clientY - y0;
+      if (horizontal === null && (Math.abs(x) > 8 || Math.abs(y) > 8)) horizontal = Math.abs(x) > Math.abs(y);
+      if (!horizontal) return;
+      const base = li.classList.contains('open') ? -96 : 0;
+      dx = Math.max(-120, Math.min(0, base + x)); row.style.transform = `translateX(${dx}px)`;
+    }, { passive: true });
+    row.addEventListener('touchend', () => {
+      row.style.transition = ''; row.style.transform = '';
+      if (horizontal) { $$('#script-list li.open').forEach(o => o !== li && o.classList.remove('open')); li.classList.toggle('open', dx < -48); }
+    });
+  },
+  async rowActions(s) {
+    const r = await modal({ title: s.title || fmtDate(s.createdAt), actions: [
+      { label: 'Abrir', value: 'open', primary: true }, { label: 'Editar', value: 'edit' }, { label: 'Renomear', value: 'rename' },
+      { label: 'Duplicar', value: 'dup' }, { label: 'Excluir', value: 'del', danger: true }, { label: 'Cancelar', value: null }] });
+    if (r === 'open') Prompter.open(s.id);
+    else if (r === 'edit') Editor.open(s.id);
+    else if (r === 'rename') {
+      const t = await modal({ title: 'Renomear roteiro', input: true, placeholder: 'Título', value: s.title, actions: [{ label: 'Salvar', primary: true }, { label: 'Cancelar', value: null }] });
+      if (t !== null) { s.title = t.trim(); s.updatedAt = Date.now(); Store.save(scripts); this.render(); }
+    } else if (r === 'dup') {
+      scripts.push({ id: uid(), title: (s.title || fmtDate(s.createdAt)) + ' (cópia)', body: s.body, createdAt: Date.now(), updatedAt: Date.now() });
+      Store.save(scripts); this.render(); toast('Roteiro duplicado');
+    } else if (r === 'del') this.remove([s.id]);
+  },
+  async remove(ids) {
+    const n = ids.length;
+    if (!await confirmModal(n > 1 ? `Excluir ${n} roteiros?` : 'Excluir este roteiro?', 'Esta ação não pode ser desfeita.')) { $$('#script-list li.open').forEach(o => o.classList.remove('open')); return; }
+    Sync.hide(ids);
+    scripts = scripts.filter(s => !ids.includes(s.id)); Store.save(scripts);
+    if (this.selecting) this.setSelecting(false); else this.render();
   },
   setSelecting(on) {
     this.selecting = on; this.selected.clear(); body.classList.toggle('selecting', on);
@@ -85,11 +150,9 @@ $('#btn-select').addEventListener('click', () => List.setSelecting(!List.selecti
 $('#btn-cancel-select').addEventListener('click', () => List.setSelecting(false));
 $('#btn-delete-selected').addEventListener('click', () => {
   if (!List.selected.size) { toast('Selecione ao menos um roteiro'); return; }
-  const n = List.selected.size;
-  if (!window.confirm(`Excluir ${n} roteiro${n > 1 ? 's' : ''}? Esta ação não pode ser desfeita.`)) return;
-  Sync.hide([...List.selected]);
-  scripts = scripts.filter(s => !List.selected.has(s.id)); Store.save(scripts); List.setSelecting(false);
+  List.remove([...List.selected]);
 });
+$('#search').addEventListener('input', e => { List.query = e.target.value; List.render(); });
 $('#btn-new').addEventListener('click', () => Editor.open(null));
 const menu = $('#menu-list');
 $('#btn-menu').addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('hidden'); });
@@ -153,7 +216,7 @@ const Editor = {
     this.count(); showView('editor');
     setTimeout(() => (s ? $('#ed-body') : $('#ed-title')).focus(), 50);
   },
-  count() { $('#ed-count').textContent = `${wordCount($('#ed-body').value)} palavras`; },
+  count() { const w = wordCount($('#ed-body').value); $('#ed-count').textContent = `${w} palavra${w === 1 ? '' : 's'} • ~${fmtTime(w / 160 * 60)} de leitura`; },
   save() {
     const title = $('#ed-title').value.trim(), bodyText = $('#ed-body').value.replace(/\r\n/g, '\n').trim();
     if (!bodyText) { toast('O roteiro está vazio'); return; }
@@ -167,6 +230,17 @@ const Editor = {
   cancel() { if (this.returnTo === 'prompter' && this.id) Prompter.open(this.id); else showView('list'); },
 };
 $('#ed-body').addEventListener('input', () => Editor.count());
+$('#ed-paste').addEventListener('click', async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    if (!t) { toast('A área de transferência está vazia'); return; }
+    const ta = $('#ed-body'); const a = ta.selectionStart, b = ta.selectionEnd;
+    ta.value = ta.value.slice(0, a) + t + ta.value.slice(b); ta.selectionStart = ta.selectionEnd = a + t.length; Editor.count();
+  } catch { toast('Não consegui ler a área de transferência. Toque e segure no texto e escolha Colar.'); }
+});
+$('#ed-clear').addEventListener('click', async () => {
+  if (!$('#ed-body').value.trim() || await confirmModal('Limpar o texto?', 'O título é mantido.', 'Limpar')) { $('#ed-body').value = ''; Editor.count(); $('#ed-body').focus(); }
+});
 $('#ed-save').addEventListener('click', () => Editor.save());
 $('#ed-cancel').addEventListener('click', () => Editor.cancel());
 
@@ -213,6 +287,9 @@ const Prompter = {
     r.setProperty('--margin', settings.margin + 'px');
     r.setProperty('--text-color', settings.color);
     r.setProperty('--line-pos', settings.linePos + '%');
+    r.setProperty('--cam-box-h', settings.camBoxHeight + '%');
+    r.setProperty('--cam-box-op', (settings.camBoxOpacity / 100).toFixed(2));
+    $('#p-opacity').value = settings.camBoxOpacity; $('#p-opacity-v').textContent = settings.camBoxOpacity + '%';
     body.classList.toggle('mirror', settings.mirror);
     body.classList.toggle('light-text', !settings.bold);
     body.classList.toggle('cam-rear', settings.rear);
@@ -512,6 +589,28 @@ bindRange('#s-count', 'countdown', '#s-count-v');
 bindRange('#s-lead', 'voiceLead', '#s-lead-v', v => v, () => { if (Prompter.voiceOn) Prompter.targetToPos(); });
 bindRange('#p-line', 'linePos', '#p-line-v', v => v + '%', () => Prompter.layoutLine());
 bindRange('#p-margin', 'margin', '#p-margin-v', v => v, () => Prompter.updateEta());
+bindRange('#p-opacity', 'camBoxOpacity', '#p-opacity-v', v => v + '%');
+// alça: arrastar a borda inferior da caixa de texto no modo câmera
+(() => {
+  const h = $('#box-handle'); let y0 = 0, h0 = 0;
+  const start = y => { y0 = y; h0 = Prompter.el.prompter.getBoundingClientRect().height; };
+  const move = y => {
+    const pct = Math.max(15, Math.min(70, (h0 + (y - y0)) / window.innerHeight * 100));
+    settings.camBoxHeight = Math.round(pct); document.documentElement.style.setProperty('--cam-box-h', settings.camBoxHeight + '%');
+  };
+  const end = () => { saveSettings(); Prompter.layoutLine(); if (Prompter.voiceOn) Prompter.targetToPos(); Prompter.updateEta(); };
+  h.addEventListener('touchstart', e => start(e.touches[0].clientY), { passive: true });
+  h.addEventListener('touchmove', e => { e.preventDefault(); move(e.touches[0].clientY); }, { passive: false });
+  h.addEventListener('touchend', end);
+  h.addEventListener('mousedown', e => { start(e.clientY); const mm = ev => move(ev.clientY); const mu = () => { end(); window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', mu); }; window.addEventListener('mousemove', mm); window.addEventListener('mouseup', mu); });
+})();
+// durante a gravação, um toque na imagem mostra os controles por alguns segundos
+let recPeek = 0;
+$('#cam').addEventListener('click', () => {
+  if (!Camera.recording()) return;
+  body.classList.remove('rec-hide'); clearTimeout(recPeek);
+  recPeek = setTimeout(() => { if (Camera.recording()) body.classList.add('rec-hide'); }, 4000);
+});
 $('#p-mirror').addEventListener('change', e => { settings.mirror = e.target.checked; saveSettings(); Prompter.applySettings(); });
 $('#p-bold').addEventListener('change', e => { settings.bold = e.target.checked; saveSettings(); Prompter.applySettings(); });
 $('#swatches').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; settings.color = b.dataset.c; saveSettings(); Prompter.applySettings(); });
@@ -543,7 +642,7 @@ const Camera = {
     if (this.recorder && this.recorder.state !== 'inactive') { try { this.recorder.stop(); } catch { } }
     if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
     $('#cam').srcObject = null;
-    body.classList.remove('cam-on'); $('#rec-ui').classList.add('hidden'); $('#t-camera').classList.remove('active');
+    body.classList.remove('cam-on', 'rec-hide'); $('#rec-ui').classList.add('hidden'); $('#t-camera').classList.remove('active');
     if (currentView === 'prompter') { Prompter.layoutLine(); Prompter.updateEta(); }
   },
   async toggle() { if (this.on()) this.stop(); else await this.start(); },
@@ -569,14 +668,15 @@ const Camera = {
     const begin = () => {
       this.recorder.start(1000); this.startAt = Date.now();
       $('#btn-record').classList.add('on'); $('#rec-time').classList.add('on');
+      closeSheets(); body.classList.add('rec-hide');
       clearInterval(this.timer); this.timer = setInterval(() => { $('#rec-time').textContent = fmtTime((Date.now() - this.startAt) / 1000); }, 250);
       if (!Prompter.voiceOn) Prompter.setPlaying(true);
     };
     Prompter.startWithCountdown(begin);
   },
   stopRecord() {
-    clearInterval(this.timer);
-    $('#btn-record').classList.remove('on'); $('#rec-time').classList.remove('on');
+    clearInterval(this.timer); clearTimeout(recPeek);
+    $('#btn-record').classList.remove('on'); $('#rec-time').classList.remove('on'); body.classList.remove('rec-hide');
     Prompter.setPlaying(false);
     try { this.recorder.stop(); } catch { }
   },
@@ -642,7 +742,7 @@ const Drafts = {
       m2.textContent = `${fmtTime(d.duration)} • ${fmtSize(d.size)}`;
       li.querySelector('.save').addEventListener('click', () => saveToPhotos(d.blob, Camera.fileName(d)));
       li.querySelector('.share').addEventListener('click', () => shareOrDownload(d.blob, Camera.fileName(d), 'Gravação do teleprompter'));
-      li.querySelector('.del').addEventListener('click', async () => { if (!window.confirm('Excluir esta gravação? Não é possível desfazer.')) return; await this.del(d.id); this.open(); });
+      li.querySelector('.del').addEventListener('click', async () => { if (!await confirmModal('Excluir esta gravação?', 'Não é possível desfazer.')) return; await this.del(d.id); this.open(); });
       ul.appendChild(li);
     }
   },

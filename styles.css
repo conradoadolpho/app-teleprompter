@@ -65,7 +65,8 @@ body.cam-on.cam-rear #cam{transform:none}
 .glass{background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:#fff}
 .pill.glass .icon-btn{color:#fff}
 .prompter{position:absolute;inset:0;overflow:hidden}
-body.cam-on .prompter{top:calc(var(--sat) + 8px);left:10px;right:10px;height:34%;border-radius:22px;background:rgba(0,0,0,.78);inset-inline:10px}
+body.cam-on .prompter{top:calc(var(--sat) + 64px);left:calc(env(safe-area-inset-left,0px) + 10px);right:calc(env(safe-area-inset-right,0px) + 10px);height:var(--cam-box-h,34%);border-radius:22px;background:rgba(0,0,0,var(--cam-box-op,.78));overflow:visible}
+body.cam-on .scroller{border-radius:22px}
 .scroller{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .scroller::-webkit-scrollbar{display:none}
 .content{font-family:var(--prompter-font);font-weight:700;font-size:var(--font-size);line-height:1.28;color:var(--text-color);padding:var(--line-pad,200px) var(--margin) 100vh;letter-spacing:-.01em}
@@ -86,7 +87,9 @@ body.cam-on .reading-line{left:0;right:0}
 .tool.active{color:#ff8a1f}
 .tool.primary{background:var(--accent);color:#fff}
 #t-play.playing{color:var(--accent)}
-body.cam-on .toolbar{bottom:calc(var(--sab) + 110px)}
+body.cam-on .toolbar{bottom:calc(var(--sab) + 98px);padding:6px 8px;gap:2px}
+body.cam-on .tool{width:46px;height:46px}
+body.cam-on .tool svg{width:24px;height:24px}
 
 .rec-ui{position:absolute;left:0;right:0;bottom:calc(var(--sab) + 14px);display:flex;align-items:center;justify-content:center;z-index:6}
 .rec-time{position:absolute;left:18px;bottom:18px;font-variant-numeric:tabular-nums;font-weight:700;background:rgba(0,0,0,.55);padding:6px 10px;border-radius:10px}
@@ -143,3 +146,57 @@ body.cam-on .toolbar{bottom:calc(var(--sab) + 110px)}
 .field.url{margin:0 0 4px;width:100%;font-size:15px;background:var(--bg)}
 .sheet .sheet-text.light-on-dark{color:inherit;opacity:.85}
 a.text-btn{text-decoration:none}
+
+/* ===== modo câmera: alça, controles escondidos ===== */
+.box-handle{display:none;position:absolute;left:0;right:0;bottom:-14px;height:34px;z-index:4;touch-action:none;cursor:ns-resize}
+.box-handle span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:48px;height:6px;border-radius:3px;background:rgba(255,255,255,.85);box-shadow:0 1px 4px rgba(0,0,0,.5)}
+body.cam-on .box-handle{display:block}
+body.rec-hide .prompter-bar,body.rec-hide .toolbar,body.rec-hide #btn-flip,body.rec-hide .box-handle{opacity:0;pointer-events:none}
+.prompter-bar,.toolbar,#btn-flip,.box-handle{transition:opacity .25s}
+body.rec-hide .rec-time{opacity:.9}
+
+/* ===== lista: busca, ações por linha, deslizar para excluir ===== */
+.search-wrap{display:flex;align-items:center;gap:8px;margin:0 14px 8px;padding:0 12px;background:var(--card);border-radius:12px;color:var(--muted)}
+.search-wrap svg{width:18px;height:18px;flex:none}
+.search{flex:1;border:0;background:transparent;color:var(--text);font:inherit;font-size:17px;padding:10px 0;outline:none;-webkit-user-select:text;user-select:text;-webkit-appearance:none}
+.list li{position:relative;overflow:hidden;padding:0;background:var(--danger);display:block}
+.drafts li{display:block;padding:16px;background:var(--bg)}
+.list li .row{display:flex;align-items:center;gap:12px;padding:18px 16px;background:var(--bg);position:relative;width:100%;transition:transform .2s;will-change:transform}
+.list li.open .row{transform:translateX(-96px)}
+.list li .swipe-del{position:absolute;right:0;top:0;bottom:0;width:96px;border:0;background:var(--danger);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+.list li .row-menu{width:36px;height:36px;border-radius:50%;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;flex:none;cursor:pointer}
+.list li .row-menu svg{width:22px;height:22px}
+.list li.empty{background:var(--bg);padding:40px 24px}
+
+/* ===== editor ===== */
+.ed-tools{display:flex;align-items:center;gap:8px;margin:0 14px 10px}
+.text-btn.small{padding:8px 12px;font-size:15px;border-radius:10px}
+.text-btn.small svg{width:18px;height:18px}
+.ed-tools .ed-meta{margin-left:auto;padding:0;color:var(--muted);font-size:13px;text-align:right}
+.area{font-size:20px;line-height:1.5}
+
+/* ===== modal ===== */
+.modal{position:absolute;inset:0;z-index:60;display:grid;place-items:center;background:rgba(0,0,0,.45);padding:24px}
+.modal-card{width:min(360px,100%);background:var(--card);color:var(--text);border-radius:20px;padding:18px 18px 12px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.modal-title{margin:0 0 6px;font-weight:700;font-size:18px;text-align:center}
+.modal-text{margin:0 0 10px;color:var(--muted);font-size:15px;text-align:center}
+.modal .field.url{width:100%;margin:6px 0 10px;background:var(--bg)}
+.modal-actions{display:flex;flex-direction:column;gap:6px}
+.modal-actions .text-btn{justify-content:center;background:var(--bg)}
+.modal-actions .text-btn.primary{background:var(--accent)}
+.sheet{max-height:82vh;overflow:auto}
+
+/* ===== paisagem ===== */
+@media (orientation: landscape) and (max-height: 520px){
+  .bar{padding-left:calc(env(safe-area-inset-left,0px) + 14px);padding-right:calc(env(safe-area-inset-right,0px) + 14px);padding-top:calc(var(--sat) + 6px)}
+  .field,.ed-tools,.search-wrap{margin-left:calc(env(safe-area-inset-left,0px) + 14px);margin-right:calc(env(safe-area-inset-right,0px) + 14px)}
+  .toolbar{bottom:calc(var(--sab) + 8px);left:calc(env(safe-area-inset-left,0px) + 12px);transform:none}
+  body.cam-on .toolbar{bottom:calc(var(--sab) + 10px)}
+  body.cam-on .prompter{top:calc(var(--sat) + 58px)}
+  .rec-ui{left:auto;right:calc(env(safe-area-inset-right,0px) + 16px);bottom:calc(var(--sab) + 10px);gap:12px;width:auto}
+  .rec-time,#btn-flip{position:static}
+  .record{width:60px;height:60px}.record::after{width:46px;height:46px}
+  .countdown span{font-size:110px}
+  .sheet{left:auto;right:calc(env(safe-area-inset-right,0px) + 10px);width:min(420px,60vw);max-height:90vh}
+  .content{padding-left:calc(env(safe-area-inset-left,0px) + var(--margin));padding-right:calc(env(safe-area-inset-right,0px) + var(--margin))}
+}

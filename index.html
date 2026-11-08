@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Teleprompter</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Teleprompter">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M13.5 8.5l2 2" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="18" cy="12" r="1.8" fill="currentColor"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-compose" viewBox="0 0 24 24"><path d="M4 20h4l10-10a2 2 0 0 0-3-3L5 17v3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M4 4h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="10" rx="2" fill="currentColor"/><path d="M16 11l5-3v8l-5-3z" fill="currentColor"/></symbol>
+    <symbol id="i-voice" viewBox="0 0 24 24"><path d="M4 10v4M7 7v10M10 4v16M13 8v8M16 5v14M19 9v6M22 11v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4" height="15" rx="1" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1" fill="currentColor"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 1.5-2s0-2 1.5-2h1.5A4.5 4.5 0 0 0 21 12.5C21 7 17 3 12 3z" fill="currentColor"/><circle cx="7.5" cy="12" r="1.4" fill="#000" fill-opacity=".9"/><circle cx="10" cy="7.8" r="1.4" fill="#000" fill-opacity=".9"/><circle cx="15" cy="7.8" r="1.4" fill="#000" fill-opacity=".9"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="2.2" fill="currentColor"/><circle cx="15" cy="12" r="2.2" fill="currentColor"/><circle cx="8" cy="17" r="2.2" fill="currentColor"/></symbol>
+    <symbol id="i-restart" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.5-5.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M4 4v5h5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-rew" viewBox="0 0 24 24"><path d="M12 6l-8 6 8 6zM20 6l-8 6 8 6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-ffw" viewBox="0 0 24 24"><path d="M12 6l8 6-8 6zM4 6l8 6-8 6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 5v14M17 5v14M3 9h4M3 15h4M17 9h4M17 15h4" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 4v10M8 10l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 14V4M8 8l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 11v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-flip" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M18 3v4h-4M6 21v-4h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<!-- ================= LISTA ================= -->
+<section id="view-list" class="view">
+  <header class="bar">
+    <button class="icon-btn" id="btn-select" title="Selecionar" aria-label="Selecionar roteiros"><svg><use href="#i-check"/></svg></button>
+    <h1>Scripts</h1>
+    <div class="pill">
+      <button class="icon-btn" id="btn-menu" aria-label="Mais opções"><svg><use href="#i-dots"/></svg></button>
+      <button class="icon-btn" id="btn-new" aria-label="Novo roteiro"><svg><use href="#i-compose"/></svg></button>
+    </div>
+  </header>
+  <div id="menu-list" class="popover hidden" role="menu">
+    <button id="m-drafts"><svg><use href="#i-film"/></svg>Rascunhos de vídeo</button>
+    <button id="m-import"><svg><use href="#i-import"/></svg>Importar script (.txt)</button>
+    <button id="m-export"><svg><use href="#i-export"/></svg>Exportar backup (.json)</button>
+    <button id="m-restore"><svg><use href="#i-import"/></svg>Restaurar backup</button>
+    <input type="file" id="file-import" accept=".txt,.md,text/plain" hidden>
+    <input type="file" id="file-restore" accept=".json,application/json" hidden>
+  </div>
+  <ul id="script-list" class="list"></ul>
+  <div id="select-bar" class="select-bar hidden">
+    <button class="text-btn danger" id="btn-delete-selected"><svg><use href="#i-trash"/></svg> Excluir selecionados</button>
+    <button class="text-btn" id="btn-cancel-select">Cancelar</button>
+  </div>
+</section>
+
+<!-- ================= EDITOR ================= -->
+<section id="view-editor" class="view hidden">
+  <header class="bar editor-bar">
+    <button class="icon-btn round" id="ed-cancel" aria-label="Cancelar"><svg><use href="#i-close"/></svg></button>
+    <span></span>
+    <button class="icon-btn round primary" id="ed-save" aria-label="Salvar"><svg><use href="#i-check"/></svg></button>
+  </header>
+  <input id="ed-title" class="field" placeholder="Título" autocomplete="off">
+  <textarea id="ed-body" class="field area" placeholder="Cole ou escreva o roteiro aqui…"></textarea>
+  <div class="ed-meta"><span id="ed-count">0 palavras</span></div>
+</section>
+
+<!-- ================= TELEPROMPTER ================= -->
+<section id="view-prompter" class="view hidden">
+  <video id="cam" autoplay playsinline muted></video>
+
+  <header class="bar prompter-bar">
+    <button class="icon-btn glass round" id="pr-back" aria-label="Voltar"><svg><use href="#i-back"/></svg></button>
+    <div class="pill glass">
+      <button class="icon-btn" id="pr-edit" aria-label="Editar roteiro"><svg><use href="#i-edit"/></svg></button>
+      <button class="icon-btn" id="pr-fullscreen" aria-label="Tela cheia"><svg><use href="#i-dots"/></svg></button>
+    </div>
+  </header>
+
+  <div id="prompter" class="prompter">
+    <div id="reading-line" class="reading-line"><span class="marker"></span></div>
+    <div id="scroller" class="scroller">
+      <div id="content" class="content"></div>
+    </div>
+  </div>
+
+  <div id="rec-ui" class="rec-ui hidden">
+    <div id="rec-time" class="rec-time">00:00</div>
+    <button id="btn-flip" class="icon-btn glass round" aria-label="Trocar câmera"><svg><use href="#i-flip"/></svg></button>
+    <button id="btn-record" class="record" aria-label="Gravar"></button>
+  </div>
+
+  <div id="countdown" class="countdown hidden"><span></span></div>
+
+  <nav class="toolbar">
+    <button class="tool" id="t-camera" aria-label="Câmera"><svg><use href="#i-camera"/></svg></button>
+    <button class="tool" id="t-voice" aria-label="Modo voz"><svg><use href="#i-voice"/></svg></button>
+    <button class="tool" id="t-play" aria-label="Reproduzir"><svg><use href="#i-play"/></svg></button>
+    <button class="tool" id="t-palette" aria-label="Cores"><svg><use href="#i-palette"/></svg></button>
+    <button class="tool" id="t-settings" aria-label="Ajustes"><svg><use href="#i-sliders"/></svg></button>
+  </nav>
+
+  <!-- Ajustes -->
+  <div id="sheet-settings" class="sheet hidden">
+    <div class="row">
+      <label for="s-voice">Modo voz</label>
+      <div class="row-right">
+        <label class="switch"><input type="checkbox" id="s-voice"><span></span></label>
+        <span id="s-eta" class="eta">~00:00</span>
+      </div>
+    </div>
+    <div class="slider-row">
+      <div class="slider-label">Tamanho da fonte <b id="s-font-v">32</b></div>
+      <div class="slider"><span class="small-a">A</span><input type="range" id="s-font" min="18" max="72" step="1"><span class="big-a">A</span></div>
+    </div>
+    <div class="slider-row">
+      <div class="slider-label">Velocidade <b id="s-speed-v">10</b></div>
+      <div class="slider"><span>🐢</span><input type="range" id="s-speed" min="1" max="40" step="1"><span>🐇</span></div>
+    </div>
+    <div class="slider-row">
+      <div class="slider-label">Contagem regressiva <b id="s-count-v">3</b></div>
+      <div class="slider"><span>⏱</span><input type="range" id="s-count" min="0" max="10" step="1"><span></span></div>
+    </div>
+    <div class="transport">
+      <button class="icon-btn big" id="c-restart" aria-label="Reiniciar"><svg><use href="#i-restart"/></svg></button>
+      <button class="icon-btn big" id="c-rew" aria-label="Voltar um pouco"><svg><use href="#i-rew"/></svg></button>
+      <button class="icon-btn big" id="c-play" aria-label="Reproduzir"><svg><use href="#i-play"/></svg></button>
+      <button class="icon-btn big" id="c-ffw" aria-label="Avançar um pouco"><svg><use href="#i-ffw"/></svg></button>
+      <button class="icon-btn big" id="c-close" aria-label="Fechar ajustes"><svg><use href="#i-close"/></svg></button>
+    </div>
+  </div>
+
+  <!-- Cores -->
+  <div id="sheet-palette" class="sheet hidden">
+    <div class="row"><label>Cor do texto</label>
+      <div class="swatches" id="swatches">
+        <button data-c="#ffffff" style="background:#ffffff"></button>
+        <button data-c="#ffd60a" style="background:#ffd60a"></button>
+        <button data-c="#64d2ff" style="background:#64d2ff"></button>
+        <button data-c="#30d158" style="background:#30d158"></button>
+        <button data-c="#ff9f0a" style="background:#ff9f0a"></button>
+      </div>
+    </div>
+    <div class="row"><label for="p-mirror">Espelhar texto (vidro de teleprompter)</label><label class="switch"><input type="checkbox" id="p-mirror"><span></span></label></div>
+    <div class="row"><label for="p-bold">Texto em negrito</label><label class="switch"><input type="checkbox" id="p-bold" checked><span></span></label></div>
+    <div class="slider-row">
+      <div class="slider-label">Posição da linha de leitura <b id="p-line-v">33%</b></div>
+      <div class="slider"><span>↑</span><input type="range" id="p-line" min="15" max="60" step="1"><span>↓</span></div>
+    </div>
+    <div class="slider-row">
+      <div class="slider-label">Margem lateral <b id="p-margin-v">24</b></div>
+      <div class="slider"><span>⟷</span><input type="range" id="p-margin" min="8" max="80" step="2"><span></span></div>
+    </div>
+    <div class="transport"><button class="icon-btn big" id="p-close" aria-label="Fechar"><svg><use href="#i-close"/></svg></button></div>
+  </div>
+
+  <div id="after-record" class="sheet hidden">
+    <p class="sheet-title">Gravação concluída</p>
+    <video id="after-video" controls playsinline></video>
+    <div class="actions">
+      <button class="text-btn primary" id="ar-share"><svg><use href="#i-share"/></svg> Salvar / Compartilhar</button>
+      <button class="text-btn" id="ar-drafts"><svg><use href="#i-film"/></svg> Rascunhos</button>
+      <button class="text-btn" id="ar-close">Fechar</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= RASCUNHOS ================= -->
+<section id="view-drafts" class="view hidden">
+  <header class="bar">
+    <button class="icon-btn" id="dr-back" aria-label="Voltar"><svg><use href="#i-back"/></svg></button>
+    <h1>Rascunhos de vídeo</h1>
+    <span></span>
+  </header>
+  <ul id="draft-list" class="list drafts"></ul>
+  <p class="hint" id="draft-hint">Os vídeos gravados dentro do app ficam aqui, só neste aparelho. Use “Salvar” para enviá-los às Fotos ou compartilhar.</p>
+</section>
+
+<div id="toast" class="toast hidden"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -61,3 +61,9 @@ Requer instalar o **Xcode** (App Store, ~15 GB). Este Mac tem só as Command Lin
 - Flutuante: `AVPictureInPictureController` com `AVSampleBufferDisplayLayer`, desenhando o texto como quadros de vídeo. Permite ler o roteiro sobre o app Câmera nativo gravando em 4K.
 - Voz: `SFSpeechRecognizer` (pt-BR), mesma lógica de alinhamento palavra a palavra do `app.js`.
 - Instalar no próprio iPhone: Apple ID gratuito vale 7 dias por instalação; conta de desenvolvedor paga (US$ 99/ano) vale 1 ano ou via TestFlight.
+
+## Publicado
+
+- Repositório: https://github.com/conradoadolpho/app-teleprompter (público)
+- App: https://conradoadolpho.github.io/app-teleprompter/
+- Para atualizar: editar os arquivos, `git commit` e `git push` na branch `main`. O GitHub Pages publica a raiz em cerca de um minuto. Se o iPhone mostrar a versão antiga, feche o app e abra de novo (o cache atualiza em segundo plano).

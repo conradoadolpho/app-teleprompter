@@ -95,6 +95,7 @@ body.cam-on .tool svg{width:24px;height:24px}
 .rec-time{position:absolute;left:18px;bottom:18px;font-variant-numeric:tabular-nums;font-weight:700;background:rgba(0,0,0,.55);padding:6px 10px;border-radius:10px}
 .rec-time.on{background:var(--danger)}
 #btn-flip{position:absolute;right:18px;bottom:14px}
+#btn-side{display:none}
 .record{appearance:none;width:76px;height:76px;border-radius:50%;border:5px solid #fff;background:transparent;display:grid;place-items:center;cursor:pointer}
 .record::after{content:"";width:60px;height:60px;border-radius:50%;background:var(--danger);transition:all .2s}
 .record.on::after{width:30px;height:30px;border-radius:8px}
@@ -151,7 +152,7 @@ a.text-btn{text-decoration:none}
 .box-handle{display:none;position:absolute;left:0;right:0;bottom:-14px;height:34px;z-index:4;touch-action:none;cursor:ns-resize}
 .box-handle span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:48px;height:6px;border-radius:3px;background:rgba(255,255,255,.85);box-shadow:0 1px 4px rgba(0,0,0,.5)}
 body.cam-on .box-handle{display:block}
-body.rec-hide .prompter-bar,body.rec-hide .toolbar,body.rec-hide #btn-flip,body.rec-hide .box-handle{opacity:0;pointer-events:none}
+body.rec-hide .prompter-bar,body.rec-hide .toolbar,body.rec-hide #btn-flip,body.rec-hide #btn-side,body.rec-hide .box-handle{opacity:0;pointer-events:none}
 .prompter-bar,.toolbar,#btn-flip,.box-handle{transition:opacity .25s}
 body.rec-hide .rec-time{opacity:.9}
 
@@ -194,7 +195,20 @@ body.rec-hide .rec-time{opacity:.9}
   body.cam-on .toolbar{bottom:calc(var(--sab) + 10px)}
   body.cam-on .prompter{top:calc(var(--sat) + 58px)}
   .rec-ui{left:auto;right:calc(env(safe-area-inset-right,0px) + 16px);bottom:calc(var(--sab) + 10px);gap:12px;width:auto}
-  .rec-time,#btn-flip{position:static}
+  .rec-time,#btn-flip,#btn-side{position:static}
+  body.cam-on #btn-side{display:grid}
+  /* caixa de texto vira painel vertical encostado no lado da câmera */
+  body.cam-on.cam-left .prompter,body.cam-on.cam-right .prompter{top:calc(var(--sat) + 58px);bottom:calc(var(--sab) + 84px);height:auto;width:var(--cam-box-w,46%);left:auto;right:auto}
+  body.cam-on.cam-left .prompter{left:calc(env(safe-area-inset-left,0px) + 10px)}
+  body.cam-on.cam-right .prompter{right:calc(env(safe-area-inset-right,0px) + 10px)}
+  body.cam-on.cam-left .box-handle,body.cam-on.cam-right .box-handle{left:auto;right:auto;top:0;bottom:0;height:auto;width:34px;cursor:ew-resize}
+  body.cam-on.cam-left .box-handle{right:-14px}
+  body.cam-on.cam-right .box-handle{left:-14px}
+  body.cam-on.cam-left .box-handle span,body.cam-on.cam-right .box-handle span{width:6px;height:48px}
+  body.cam-on.cam-left .toolbar{left:auto;right:calc(env(safe-area-inset-right,0px) + 16px)}
+  body.cam-on.cam-left .rec-ui{right:auto;left:calc(env(safe-area-inset-left,0px) + 16px);flex-direction:row-reverse}
+  body.cam-on.cam-left .prompter-bar .pill{order:-1}
+  body.cam-on.cam-right .prompter-bar{flex-direction:row-reverse}
   .record{width:60px;height:60px}.record::after{width:46px;height:46px}
   .countdown span{font-size:110px}
   .sheet{left:auto;right:calc(env(safe-area-inset-right,0px) + 10px);width:min(420px,60vw);max-height:90vh}

@@ -34,7 +34,7 @@ const Store = {
   load() { try { return JSON.parse(localStorage.getItem(this.key) || '[]'); } catch { return []; } },
   save(list) { try { localStorage.setItem(this.key, JSON.stringify(list)); } catch { toast('Não consegui salvar (armazenamento cheio?)'); } },
 };
-const defaultSettings = { fontSize: 32, speed: 10, countdown: 3, voice: false, voiceLead: 2, syncUrl: '', camBoxHeight: 34, camBoxOpacity: 78, mirror: false, bold: true, color: '#ffffff', linePos: 33, margin: 24, rear: false };
+const defaultSettings = { fontSize: 32, speed: 10, countdown: 3, voice: false, voiceLead: 2, syncUrl: '', camBoxHeight: 34, camBoxOpacity: 78, camBoxWidth: 46, camSide: 'auto', mirror: false, bold: true, color: '#ffffff', linePos: 33, margin: 24, rear: false };
 let settings = { ...defaultSettings };
 try { settings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('tp.settings') || '{}') }; } catch { }
 function saveSettings() { try { localStorage.setItem('tp.settings', JSON.stringify(settings)); } catch { } }
@@ -289,6 +289,8 @@ const Prompter = {
     r.setProperty('--line-pos', settings.linePos + '%');
     r.setProperty('--cam-box-h', settings.camBoxHeight + '%');
     r.setProperty('--cam-box-op', (settings.camBoxOpacity / 100).toFixed(2));
+    r.setProperty('--cam-box-w', settings.camBoxWidth + '%');
+    applyCamSide();
     $('#p-opacity').value = settings.camBoxOpacity; $('#p-opacity-v').textContent = settings.camBoxOpacity + '%';
     body.classList.toggle('mirror', settings.mirror);
     body.classList.toggle('light-text', !settings.bold);
@@ -590,19 +592,50 @@ bindRange('#s-lead', 'voiceLead', '#s-lead-v', v => v, () => { if (Prompter.voic
 bindRange('#p-line', 'linePos', '#p-line-v', v => v + '%', () => Prompter.layoutLine());
 bindRange('#p-margin', 'margin', '#p-margin-v', v => v, () => Prompter.updateEta());
 bindRange('#p-opacity', 'camBoxOpacity', '#p-opacity-v', v => v + '%');
-// alça: arrastar a borda inferior da caixa de texto no modo câmera
+// Deitado, a câmera frontal fica à esquerda ou à direita conforme o giro do iPhone.
+// Ângulo 90 = topo do aparelho à esquerda (câmera à esquerda); 270 = câmera à direita.
+function detectCamSide() {
+  if (settings.camSide === 'left' || settings.camSide === 'right') return settings.camSide;
+  const landscape = window.innerWidth > window.innerHeight;
+  if (!landscape) return 'top';
+  let a = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (typeof window.orientation === 'number' ? window.orientation : 0);
+  a = ((a % 360) + 360) % 360;
+  if (a === 90) return 'left';
+  if (a === 270) return 'right';
+  return 'right'; // sem informação: iPhone costuma ser girado com a câmera à direita
+}
+function applyCamSide() {
+  const side = detectCamSide();
+  body.classList.toggle('cam-left', side === 'left'); body.classList.toggle('cam-right', side === 'right');
+  if (currentView === 'prompter') { Prompter.layoutLine(); if (Prompter.voiceOn) Prompter.targetToPos(); }
+}
+window.addEventListener('resize', applyCamSide);
+window.addEventListener('orientationchange', () => setTimeout(applyCamSide, 150));
+if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', () => setTimeout(applyCamSide, 150));
+$('#btn-side').addEventListener('click', () => {
+  const cur = detectCamSide();
+  settings.camSide = cur === 'left' ? 'right' : 'left'; saveSettings(); applyCamSide();
+  toast(settings.camSide === 'left' ? 'Caixa à esquerda (câmera à esquerda)' : 'Caixa à direita (câmera à direita)', 2000);
+});
+// alça: arrastar a borda inferior da caixa de texto no modo câmera (ou a borda lateral, deitado)
 (() => {
-  const h = $('#box-handle'); let y0 = 0, h0 = 0;
-  const start = y => { y0 = y; h0 = Prompter.el.prompter.getBoundingClientRect().height; };
-  const move = y => {
-    const pct = Math.max(15, Math.min(70, (h0 + (y - y0)) / window.innerHeight * 100));
-    settings.camBoxHeight = Math.round(pct); document.documentElement.style.setProperty('--cam-box-h', settings.camBoxHeight + '%');
+  const h = $('#box-handle'); let x0 = 0, y0 = 0, h0 = 0, w0 = 0, side = 'top';
+  const start = (x, y) => { x0 = x; y0 = y; side = detectCamSide(); const r = Prompter.el.prompter.getBoundingClientRect(); h0 = r.height; w0 = r.width; };
+  const move = (x, y) => {
+    if (side === 'top') {
+      const pct = Math.max(15, Math.min(70, (h0 + (y - y0)) / window.innerHeight * 100));
+      settings.camBoxHeight = Math.round(pct); document.documentElement.style.setProperty('--cam-box-h', settings.camBoxHeight + '%');
+    } else {
+      const dx = side === 'left' ? (x - x0) : (x0 - x);
+      const pct = Math.max(28, Math.min(75, (w0 + dx) / window.innerWidth * 100));
+      settings.camBoxWidth = Math.round(pct); document.documentElement.style.setProperty('--cam-box-w', settings.camBoxWidth + '%');
+    }
   };
   const end = () => { saveSettings(); Prompter.layoutLine(); if (Prompter.voiceOn) Prompter.targetToPos(); Prompter.updateEta(); };
-  h.addEventListener('touchstart', e => start(e.touches[0].clientY), { passive: true });
-  h.addEventListener('touchmove', e => { e.preventDefault(); move(e.touches[0].clientY); }, { passive: false });
+  h.addEventListener('touchstart', e => start(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  h.addEventListener('touchmove', e => { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
   h.addEventListener('touchend', end);
-  h.addEventListener('mousedown', e => { start(e.clientY); const mm = ev => move(ev.clientY); const mu = () => { end(); window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', mu); }; window.addEventListener('mousemove', mm); window.addEventListener('mouseup', mu); });
+  h.addEventListener('mousedown', e => { start(e.clientX, e.clientY); const mm = ev => move(ev.clientX, ev.clientY); const mu = () => { end(); window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', mu); }; window.addEventListener('mousemove', mm); window.addEventListener('mouseup', mu); });
 })();
 // durante a gravação, um toque na imagem mostra os controles por alguns segundos
 let recPeek = 0;

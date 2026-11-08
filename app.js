@@ -186,6 +186,7 @@ const Prompter = {
   script: null, tokens: [], spans: [], pos: 0, lastHi: 0,
   playing: false, scrollY: 0, target: null, raf: 0, lastTs: 0,
   voiceOn: false, rec: null, consumed: new Map(), voiceErrors: 0, restartTimer: 0, watchdog: 0, recStarted: false,
+  recent: [], misses: 0, lastProgScroll: 0, scrollSyncTimer: 0,
   wakeLock: null, countdownTimer: 0,
   el: { scroller: $('#scroller'), content: $('#content'), prompter: $('#prompter'), line: $('#reading-line') },
 
@@ -269,11 +270,11 @@ const Prompter = {
         const d = this.target - this.scrollY;
         if (Math.abs(d) < 0.6) { this.scrollY = this.target; this.target = null; }
         else this.scrollY += d * Math.min(1, dt * 5);
-        sc.scrollTop = this.scrollY;
+        sc.scrollTop = this.scrollY; this.lastProgScroll = ts;
       }
     } else if (this.playing) {
       this.scrollY = Math.min(this.maxScroll(), this.scrollY + this.pxPerSec() * dt);
-      sc.scrollTop = this.scrollY;
+      sc.scrollTop = this.scrollY; this.lastProgScroll = ts;
       if (this.scrollY >= this.maxScroll() - 0.5) this.setPlaying(false);
     }
     this.raf = requestAnimationFrame(t => this.loop(t));
@@ -298,10 +299,10 @@ const Prompter = {
     const tick = () => { k--; if (k <= 0) { box.classList.add('hidden'); then(); return; } span.textContent = k; this.countdownTimer = setTimeout(tick, 1000); };
     this.countdownTimer = setTimeout(tick, 1000);
   },
-  restart() { this.setPlaying(false); this.scrollY = 0; this.el.scroller.scrollTop = 0; this.pos = 0; this.target = null; this.highlight(); this.updateEta(); },
+  restart() { this.setPlaying(false); this.scrollY = 0; this.el.scroller.scrollTop = 0; this.lastProgScroll = performance.now(); this.pos = 0; this.target = null; this.recent = []; this.misses = 0; this.highlight(); this.updateEta(); },
   nudge(dir) {
     const step = this.el.prompter.clientHeight * 0.3 * dir;
-    this.scrollY = Math.max(0, Math.min(this.maxScroll(), this.scrollY + step)); this.el.scroller.scrollTop = this.scrollY;
+    this.scrollY = Math.max(0, Math.min(this.maxScroll(), this.scrollY + step)); this.el.scroller.scrollTop = this.scrollY; this.lastProgScroll = performance.now();
     if (this.voiceOn) this.syncPosToScroll(); this.updateEta();
   },
 
@@ -367,11 +368,37 @@ const Prompter = {
   },
   consumeWord(w) {
     const T = this.tokens; if (!T.length) return;
+    this.recent.push(w); if (this.recent.length > 4) this.recent.shift();
     const look = w.length <= 2 ? 4 : w.length === 3 ? 8 : 16;
     for (let j = this.pos; j < Math.min(T.length, this.pos + look); j++) {
-      if (T[j] && this.wordsMatch(w, T[j])) { this.pos = j + 1; this.targetToPos(); return; }
+      if (T[j] && this.wordsMatch(w, T[j])) { this.pos = j + 1; this.misses = 0; this.targetToPos(); return; }
     }
-    // palavra não encontrada à frente: ignora (ruído, repetição ou improviso)
+    // não achou à frente: pode ser ruído, improviso… ou o leitor voltou/pulou no texto
+    this.misses++;
+    if (this.misses >= 2) this.relocate();
+  },
+  // procura as últimas palavras ditas no texto inteiro; entre empates, fica com o trecho mais perto da linha de leitura
+  relocate() {
+    const T = this.tokens, anchor = this.nearestIndexToLine();
+    // tenta as últimas 3 palavras; se não houver trecho igual, as últimas 2
+    for (const len of [3, 2]) {
+      const R = this.recent.slice(-len); if (R.length < 2) continue;
+      if (!R.some(r => r.length >= 4)) continue; // só palavras curtas: ambíguo demais para pular
+      let best = -1, bestDist = Infinity;
+      for (let i = 0; i < T.length; i++) {
+        let k = i, ok = true;
+        for (const r of R) {
+          let found = -1;
+          for (let t = k; t < Math.min(T.length, k + 2); t++) { if (T[t] && this.wordsMatch(r, T[t])) { found = t; break; } }
+          if (found < 0) { ok = false; break; }
+          k = found + 1;
+        }
+        if (!ok) continue;
+        const dist = Math.abs(i - anchor);
+        if (dist < bestDist) { best = k; bestDist = dist; }
+      }
+      if (best >= 0) { this.pos = best; this.misses = 0; this.targetToPos(); return; }
+    }
   },
   // posição exibida = palavra reconhecida + antecipação (o reconhecimento chega com atraso)
   displayPos() { return Math.min(this.spans.length, this.pos + (settings.voiceLead | 0)); },
@@ -393,11 +420,17 @@ const Prompter = {
       if (s.classList.contains('cur') !== cur) s.classList.toggle('cur', cur);
     }
   },
-  syncPosToScroll() { // após arrastar: palavra mais próxima da linha de leitura vira posição atual
+  nearestIndexToLine() {
     const y = this.scrollY + this.lineOffset();
     let best = 0, bestD = Infinity;
     this.spans.forEach((s, i) => { const d = Math.abs(s.offsetTop - y); if (d < bestD) { bestD = d; best = i; } });
-    this.pos = best; this.highlight();
+    return best;
+  },
+  syncPosToScroll() { // após rolar com o dedo: a palavra na linha de leitura vira a palavra atual (descontando a antecipação)
+    const near = this.nearestIndexToLine();
+    this.pos = Math.max(0, near - (settings.voiceLead | 0));
+    if (near === 0 || this.scrollY <= 1) this.pos = 0;
+    this.recent = []; this.misses = 0; this.target = null; this.highlight();
   },
 
   // ---- toque/arraste no texto ----
@@ -419,8 +452,14 @@ const Prompter = {
     sc.addEventListener('mousedown', e => { if (!usedTouch) start(e.clientX, e.clientY); });
     sc.addEventListener('mouseup', e => { if (!usedTouch) end(e.clientX, e.clientY); });
     sc.addEventListener('wheel', () => { this.scrollY = sc.scrollTop; if (this.voiceOn) this.syncPosToScroll(); this.updateEta(); }, { passive: true });
-    // rolagem inercial do dedo depois do touchend
-    sc.addEventListener('scroll', () => { if (!this.manualTouch && !this.playing && this.target == null) this.scrollY = sc.scrollTop; }, { passive: true });
+    // rolagem inercial do dedo depois do touchend: quando parar, ressincroniza a posição da voz
+    sc.addEventListener('scroll', () => {
+      if (this.manualTouch) return;
+      if (performance.now() - this.lastProgScroll < 150) return; // rolagem feita pelo próprio app
+      this.scrollY = sc.scrollTop;
+      clearTimeout(this.scrollSyncTimer);
+      this.scrollSyncTimer = setTimeout(() => { if (this.voiceOn) this.syncPosToScroll(); this.updateEta(); }, 180);
+    }, { passive: true });
   },
 
   async requestWakeLock() {

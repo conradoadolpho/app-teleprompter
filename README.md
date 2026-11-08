@@ -78,14 +78,14 @@ Câmera e microfone só funcionam em páginas **HTTPS** (ou `localhost`). Por is
 Depois, no iPhone:
 
 1. Abrir o endereço no **Safari**.
-2. Compartilhar → **Adicionar à Tela de Início**.
-3. Abrir pelo ícone. Na primeira vez, permitir **microfone** (modo voz) e **câmera** (gravação).
+2. Para usar o **modo voz**, use direto no Safari (salve nos Favoritos). O ícone da Tela de Início serve para rolagem automática, câmera e gravação, mas o iOS bloqueia a voz nesse modo.
+3. Na primeira vez, permitir **microfone** (modo voz) e **câmera** (gravação).
 
 ## Limitações desta versão web
 
 - **Janela flutuante sobre a Câmera nativa** (o botão “Floating” do app de referência) não existe na web. O iOS só permite isso para apps nativos, via Picture in Picture. Aqui a solução é o **modo câmera** dentro do app, com o texto no alto da tela.
 - **Sincronização iCloud** foi substituída por exportar/restaurar backup `.json`.
-- O **modo voz** usa o reconhecimento do próprio Safari. No iPhone, exige internet em alguns modelos e pode parar em silêncios longos; o app reinicia automaticamente.
+- **Modo voz só no Safari.** O iOS não disponibiliza o reconhecimento de voz para apps abertos pelo ícone da Tela de Início ([WebKit bug 225298](https://bugs.webkit.org/show_bug.cgi?id=225298), aberto desde 2021 e ainda sem correção em 2025). Pelo ícone, o app avisa e oferece “Abrir no Safari”. No Safari o modo voz funciona normalmente; o resto do app funciona nos dois. O reconhecimento pode exigir internet e para em silêncios longos; o app reinicia automaticamente.
 - **Voz + gravação ao mesmo tempo**: no iOS, dois usos do microfone podem conflitar. Se o reconhecimento falhar durante a gravação, o app avisa e passa para rolagem automática.
 - Gravações em vídeo ficam só no aparelho. Salve nas Fotos o que quiser guardar.
 

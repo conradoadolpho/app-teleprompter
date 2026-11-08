@@ -141,3 +141,5 @@ body.cam-on .toolbar{bottom:calc(var(--sab) + 110px)}
 .sheet-text{margin:0 0 12px;font-size:15px;color:var(--muted);line-height:1.4}
 .sheet-text code{font-size:13px}
 .field.url{margin:0 0 4px;width:100%;font-size:15px;background:var(--bg)}
+.sheet .sheet-text.light-on-dark{color:inherit;opacity:.85}
+a.text-btn{text-decoration:none}

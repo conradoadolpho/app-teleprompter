@@ -172,10 +172,20 @@ $('#ed-cancel').addEventListener('click', () => Editor.cancel());
 
 // ---------- teleprompter ----------
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+// App aberto pelo ícone da Tela de Início: o iOS não disponibiliza o reconhecimento de voz nesse modo (WebKit bug 225298)
+const isStandalone = navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+const voiceErrorText = {
+  'not-allowed': 'Microfone negado. Em Ajustes › Safari › Microfone, permita para este site.',
+  'service-not-allowed': 'O sistema não liberou o serviço de reconhecimento de voz.',
+  'audio-capture': 'Microfone indisponível (outro app ou a gravação pode estar usando).',
+  'network': 'Sem conexão: o reconhecimento de voz do iPhone precisa de internet.',
+  'language-not-supported': 'Idioma pt-BR não disponível no reconhecimento.',
+};
 const Prompter = {
   script: null, tokens: [], spans: [], pos: 0, lastHi: 0,
   playing: false, scrollY: 0, target: null, raf: 0, lastTs: 0,
-  voiceOn: false, rec: null, consumed: new Map(), voiceErrors: 0, restartTimer: 0,
+  voiceOn: false, rec: null, consumed: new Map(), voiceErrors: 0, restartTimer: 0, watchdog: 0, recStarted: false,
   wakeLock: null, countdownTimer: 0,
   el: { scroller: $('#scroller'), content: $('#content'), prompter: $('#prompter'), line: $('#reading-line') },
 
@@ -300,7 +310,7 @@ const Prompter = {
     if (on && !SR) { toast('Reconhecimento de voz não está disponível neste navegador. No iPhone, use o Safari.'); $('#s-voice').checked = false; settings.voice = false; saveSettings(); return; }
     settings.voice = on; saveSettings();
     $('#s-voice').checked = on; $('#t-voice').classList.toggle('active', on); body.classList.toggle('voice-on', on);
-    if (on) { this.setPlaying(false); this.syncPosToScroll(); this.startVoice(); if (!silent) toast('Modo voz ativado: o texto acompanha a sua fala'); }
+    if (on) { this.setPlaying(false); this.syncPosToScroll(); this.startVoice(); if (!silent) toast(isIOS && isStandalone ? 'Tentando ativar a voz…' : 'Modo voz ativado: o texto acompanha a sua fala'); }
     else { this.stopVoice(); this.highlight(true); }
     this.voiceOn = on; this.updateEta();
   },
@@ -309,8 +319,14 @@ const Prompter = {
     const rec = new SR(); this.rec = rec;
     rec.lang = 'pt-BR'; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
     this.consumed = new Map();
+    this.recStarted = false; clearTimeout(this.watchdog);
+    // se o serviço não responder em alguns segundos, avisa (na Tela de Início do iOS ele nunca responde)
+    this.watchdog = setTimeout(() => { if (this.rec === rec && this.voiceOn && !this.recStarted) this.voiceUnavailable('timeout'); }, isStandalone ? 4000 : 8000);
     rec.onstart = () => { this.voiceErrors = 0; };
+    rec.onaudiostart = () => { this.recStarted = true; clearTimeout(this.watchdog); };
+    rec.onspeechstart = () => { this.recStarted = true; clearTimeout(this.watchdog); };
     rec.onresult = e => {
+      this.recStarted = true; clearTimeout(this.watchdog);
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const words = e.results[i][0].transcript.trim().split(/\s+/).map(normalizeWord).filter(Boolean);
         const done = this.consumed.get(i) || 0;
@@ -321,14 +337,24 @@ const Prompter = {
     rec.onerror = e => {
       if (e.error === 'no-speech' || e.error === 'aborted') return;
       this.voiceErrors++;
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { toast('Permita o microfone para usar o modo voz'); this.setVoice(false); return; }
-      if (this.voiceErrors >= 3) { toast('Voz indisponível agora. Rolagem automática ativada.'); this.setVoice(false); this.setPlaying(true); }
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { this.voiceUnavailable(e.error); return; }
+      if (this.voiceErrors >= 3) { toast('Voz indisponível agora (' + (voiceErrorText[e.error] || e.error) + '). Rolagem automática ativada.', 4500); this.setVoice(false); this.setPlaying(true); }
+      else toast('Voz: ' + (voiceErrorText[e.error] || e.error), 3000);
     };
     rec.onend = () => { if (this.rec === rec && this.voiceOn) { clearTimeout(this.restartTimer); this.restartTimer = setTimeout(() => { if (this.rec === rec && this.voiceOn) { this.consumed = new Map(); try { rec.start(); } catch { } } }, 250); } };
     try { rec.start(); } catch (err) { toast('Não consegui iniciar o microfone'); }
   },
+  voiceUnavailable(code) {
+    this.setVoice(false);
+    if (isIOS && isStandalone) { // sem saída na web: mandar para o Safari, onde o reconhecimento funciona
+      $('#open-safari').href = location.href.split('#')[0];
+      closeSheets('#sheet-safari'); $('#sheet-safari').classList.remove('hidden');
+      return;
+    }
+    toast(code === 'timeout' ? 'O reconhecimento de voz não respondeu. Confira o microfone e tente de novo.' : (voiceErrorText[code] || ('Voz indisponível: ' + code)), 5000);
+  },
   stopVoice() {
-    clearTimeout(this.restartTimer);
+    clearTimeout(this.restartTimer); clearTimeout(this.watchdog);
     if (this.rec) { const r = this.rec; this.rec = null; try { r.onend = null; r.stop(); } catch { } }
   },
   wordsMatch(a, b) {
@@ -421,7 +447,9 @@ $('#c-ffw').addEventListener('click', () => Prompter.nudge(1));
 $('#t-voice').addEventListener('click', () => Prompter.setVoice(!Prompter.voiceOn));
 $('#s-voice').addEventListener('change', e => Prompter.setVoice(e.target.checked));
 
-const sheets = ['#sheet-settings', '#sheet-palette', '#after-record'];
+const sheets = ['#sheet-settings', '#sheet-palette', '#after-record', '#sheet-safari'];
+$('#safari-auto').addEventListener('click', () => { closeSheets(); Prompter.togglePlay(); });
+$('#open-safari').addEventListener('click', () => setTimeout(closeSheets, 500));
 function closeSheets(except) { sheets.forEach(s => { if (s !== except) $(s).classList.add('hidden'); }); }
 function toggleSheet(sel) { const el = $(sel); const show = el.classList.contains('hidden'); closeSheets(sel); el.classList.toggle('hidden', !show); if (show && sel === '#sheet-settings') Prompter.updateEta(); }
 $('#t-settings').addEventListener('click', () => toggleSheet('#sheet-settings'));

@@ -1,7 +1,7 @@
 {
-  "name": "Teleprompter",
-  "short_name": "Teleprompter",
-  "description": "Teleprompter pessoal com rolagem automática, modo voz e gravação.",
+  "name": "TP-SQV",
+  "short_name": "TP-SQV",
+  "description": "TP-SQV: teleprompter pessoal com rolagem automática, modo voz e gravação.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

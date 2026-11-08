@@ -1,6 +1,6 @@
-# Teleprompter (uso pessoal)
+# TP-SQV (teleprompter pessoal)
 
-App web instalável (PWA) para iPhone, feito para uso pessoal. Funciona no Safari e, depois de adicionado à Tela de Início, abre em tela cheia como um app.
+TP-SQV é um app web instalável (PWA) de teleprompter para iPhone, feito para uso pessoal. Funciona no Safari e, depois de adicionado à Tela de Início, abre em tela cheia como um app.
 
 ## O que ele faz
 
@@ -44,7 +44,7 @@ Depois disso:
 
 **Privacidade**: o endereço `/exec` permite ler os textos dessa pasta a quem o tiver. Não o publique. Para criar roteiros de fora (POST), defina `WRITE_TOKEN` no script.
 
-### Integração com outro sistema (SQV)
+### Integração com o SQV (adiada, a pedido do Conrado em 08/11/2026)
 
 O mesmo script aceita `POST` com JSON `{ "token": "...", "title": "...", "body": "..." }` e cria o documento na pasta, que então aparece no app. É o gancho para uma opção "Sincronizar com app" em outro sistema: ao salvar o roteiro lá, basta enviar esse POST para o endereço `/exec`.
 

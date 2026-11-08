@@ -34,7 +34,7 @@ const Store = {
   load() { try { return JSON.parse(localStorage.getItem(this.key) || '[]'); } catch { return []; } },
   save(list) { try { localStorage.setItem(this.key, JSON.stringify(list)); } catch { toast('Não consegui salvar (armazenamento cheio?)'); } },
 };
-const defaultSettings = { fontSize: 32, speed: 10, countdown: 3, voice: false, mirror: false, bold: true, color: '#ffffff', linePos: 33, margin: 24, rear: false };
+const defaultSettings = { fontSize: 32, speed: 10, countdown: 3, voice: false, voiceLead: 2, syncUrl: '', mirror: false, bold: true, color: '#ffffff', linePos: 33, margin: 24, rear: false };
 let settings = { ...defaultSettings };
 try { settings = { ...defaultSettings, ...JSON.parse(localStorage.getItem('tp.settings') || '{}') }; } catch { }
 function saveSettings() { try { localStorage.setItem('tp.settings', JSON.stringify(settings)); } catch { } }
@@ -67,7 +67,7 @@ const List = {
     for (const s of sorted) {
       const li = document.createElement('li'); li.dataset.id = s.id;
       if (this.selected.has(s.id)) li.classList.add('sel');
-      li.innerHTML = `<span class="cb"></span><span class="t"></span><span class="chev">›</span>`;
+      li.innerHTML = `<span class="cb"></span><span class="t"></span>${s.source === 'gdocs' ? '<svg class="src" aria-label="Google Docs"><use href="#i-doc"/></svg>' : ''}<span class="chev">›</span>`;
       li.querySelector('.t').textContent = s.title || fmtDate(s.createdAt);
       li.addEventListener('click', () => {
         if (this.selecting) { this.selected.has(s.id) ? this.selected.delete(s.id) : this.selected.add(s.id); li.classList.toggle('sel'); return; }
@@ -87,6 +87,7 @@ $('#btn-delete-selected').addEventListener('click', () => {
   if (!List.selected.size) { toast('Selecione ao menos um roteiro'); return; }
   const n = List.selected.size;
   if (!window.confirm(`Excluir ${n} roteiro${n > 1 ? 's' : ''}? Esta ação não pode ser desfeita.`)) return;
+  Sync.hide([...List.selected]);
   scripts = scripts.filter(s => !List.selected.has(s.id)); Store.save(scripts); List.setSelecting(false);
 });
 $('#btn-new').addEventListener('click', () => Editor.open(null));
@@ -118,13 +119,28 @@ $('#file-restore').addEventListener('change', async e => {
   } catch { toast('Arquivo de backup inválido'); }
 });
 
-async function shareOrDownload(blob, name) {
-  const file = new File([blob], name, { type: blob.type });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; }
-  }
+function downloadBlob(blob, name) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+async function shareOrDownload(blob, name, title) {
+  const file = new File([blob], name, { type: blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: title || name }); return true; } catch (e) { if (e.name === 'AbortError') return false; }
+  }
+  downloadBlob(blob, name); return true;
+}
+// Na web não existe acesso direto à Fototeca: o iOS só grava vídeo nas Fotos pela folha do sistema.
+// Abrimos a folha só com o vídeo; “Salvar Vídeo” fica a um toque. Fora do iOS, baixa o arquivo.
+async function saveToPhotos(blob, name) {
+  const file = new File([blob], name, { type: blob.type });
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIOS && navigator.canShare && navigator.canShare({ files: [file] })) {
+    toast('Toque em “Salvar Vídeo” para gravar nas Fotos', 3500);
+    try { await navigator.share({ files: [file] }); } catch (e) { if (e.name !== 'AbortError') downloadBlob(blob, name); }
+    return;
+  }
+  downloadBlob(blob, name); toast('Vídeo baixado');
 }
 
 // ---------- editor ----------
@@ -144,6 +160,7 @@ const Editor = {
     let s = this.id ? scripts.find(x => x.id === this.id) : null;
     if (!s) { s = { id: uid(), createdAt: Date.now() }; scripts.push(s); }
     s.title = title; s.body = bodyText; s.updatedAt = Date.now();
+    if (s.source === 'gdocs') { s.syncedAt = Date.now(); toast('Editado só no app. Para valer no Google Docs, edite o documento lá.', 3500); }
     Store.save(scripts); List.render();
     if (this.returnTo === 'prompter') Prompter.open(s.id); else showView('list');
   },
@@ -192,6 +209,7 @@ const Prompter = {
     $('#s-speed').value = settings.speed; $('#s-speed-v').textContent = settings.speed;
     $('#s-count').value = settings.countdown; $('#s-count-v').textContent = settings.countdown;
     $('#s-voice').checked = settings.voice;
+    $('#s-lead').value = settings.voiceLead; $('#s-lead-v').textContent = settings.voiceLead;
     $('#p-mirror').checked = settings.mirror; $('#p-bold').checked = settings.bold;
     $('#p-line').value = settings.linePos; $('#p-line-v').textContent = settings.linePos + '%';
     $('#p-margin').value = settings.margin; $('#p-margin-v').textContent = settings.margin;
@@ -329,17 +347,19 @@ const Prompter = {
     }
     // palavra não encontrada à frente: ignora (ruído, repetição ou improviso)
   },
+  // posição exibida = palavra reconhecida + antecipação (o reconhecimento chega com atraso)
+  displayPos() { return Math.min(this.spans.length, this.pos + (settings.voiceLead | 0)); },
   targetToPos() {
-    const span = this.spans[Math.max(0, this.pos - 1)]; if (!span) return;
+    const span = this.spans[Math.max(0, this.displayPos() - 1)]; if (!span) return;
     const lineTop = span.offsetTop; // relativo ao conteúdo (padding-top = linha de leitura)
     const t = Math.max(0, Math.min(this.maxScroll(), lineTop - this.lineOffset()));
     // só rola quando a palavra atual já saiu da linha de leitura (evita tremer a cada palavra)
-    if (Math.abs(t - this.scrollY) > settings.fontSize * 0.6) this.target = t;
+    if (Math.abs(t - this.scrollY) > settings.fontSize * 0.5) this.target = t;
     this.highlight();
   },
   highlight(clear = false) {
     if (clear) { this.spans.forEach(s => s.classList.remove('read', 'cur')); this.lastHi = 0; return; }
-    const end = Math.min(this.pos, this.spans.length);
+    const end = this.displayPos();
     for (let i = 0; i < this.spans.length; i++) {
       const s = this.spans[i];
       const read = i < end - 1, cur = i === end - 1;
@@ -415,6 +435,7 @@ function bindRange(id, key, label, fmt = v => v, after) {
 bindRange('#s-font', 'fontSize', '#s-font-v', v => v, () => { Prompter.layoutLine(); if (Prompter.voiceOn) Prompter.targetToPos(); Prompter.updateEta(); });
 bindRange('#s-speed', 'speed', '#s-speed-v', v => v, () => Prompter.updateEta());
 bindRange('#s-count', 'countdown', '#s-count-v');
+bindRange('#s-lead', 'voiceLead', '#s-lead-v', v => v, () => { if (Prompter.voiceOn) Prompter.targetToPos(); });
 bindRange('#p-line', 'linePos', '#p-line-v', v => v + '%', () => Prompter.layoutLine());
 bindRange('#p-margin', 'margin', '#p-margin-v', v => v, () => Prompter.updateEta());
 $('#p-mirror').addEventListener('change', e => { settings.mirror = e.target.checked; saveSettings(); Prompter.applySettings(); });
@@ -505,7 +526,8 @@ $('#t-camera').addEventListener('click', () => Camera.toggle());
 $('#btn-flip').addEventListener('click', () => Camera.flip());
 $('#btn-record').addEventListener('click', () => Camera.toggleRecord());
 $('#ar-close').addEventListener('click', () => { closeSheets(); $('#after-video').pause(); });
-$('#ar-share').addEventListener('click', () => Camera.lastBlob && shareOrDownload(Camera.lastBlob, Camera.fileName(Camera.lastDraft)));
+$('#ar-save').addEventListener('click', () => Camera.lastBlob && saveToPhotos(Camera.lastBlob, Camera.fileName(Camera.lastDraft)));
+$('#ar-share').addEventListener('click', () => Camera.lastBlob && shareOrDownload(Camera.lastBlob, Camera.fileName(Camera.lastDraft), 'Gravação do teleprompter'));
 $('#ar-drafts').addEventListener('click', () => { closeSheets(); Drafts.open(); });
 
 // ---------- rascunhos (IndexedDB) ----------
@@ -539,12 +561,13 @@ const Drafts = {
       const url = URL.createObjectURL(d.blob); this.urls.push(url);
       li.innerHTML = `<video controls playsinline preload="metadata"></video>
         <div class="meta"><span></span><span></span></div>
-        <div class="actions"><button class="text-btn primary share"><svg><use href="#i-share"/></svg> Salvar</button><button class="text-btn danger del"><svg><use href="#i-trash"/></svg> Excluir</button></div>`;
+        <div class="actions"><button class="text-btn primary save"><svg><use href="#i-photo"/></svg> Salvar nas Fotos</button><button class="text-btn share"><svg><use href="#i-share"/></svg> Compartilhar</button><button class="text-btn danger del"><svg><use href="#i-trash"/></svg> Excluir</button></div>`;
       li.querySelector('video').src = url;
       const [m1, m2] = li.querySelectorAll('.meta span');
       m1.textContent = `${fmtDate(d.createdAt)}${d.scriptTitle ? ' • ' + d.scriptTitle : ''}`;
       m2.textContent = `${fmtTime(d.duration)} • ${fmtSize(d.size)}`;
-      li.querySelector('.share').addEventListener('click', () => shareOrDownload(d.blob, Camera.fileName(d)));
+      li.querySelector('.save').addEventListener('click', () => saveToPhotos(d.blob, Camera.fileName(d)));
+      li.querySelector('.share').addEventListener('click', () => shareOrDownload(d.blob, Camera.fileName(d), 'Gravação do teleprompter'));
       li.querySelector('.del').addEventListener('click', async () => { if (!window.confirm('Excluir esta gravação? Não é possível desfazer.')) return; await this.del(d.id); this.open(); });
       ul.appendChild(li);
     }
@@ -552,8 +575,66 @@ const Drafts = {
 };
 $('#dr-back').addEventListener('click', () => { showView('list'); List.render(); });
 
+// ---------- sincronização com Google Docs (via Apps Script) ----------
+const Sync = {
+  busy: false,
+  hidden() { try { return JSON.parse(localStorage.getItem('tp.hidden') || '{}'); } catch { return {}; } },
+  setHidden(h) { try { localStorage.setItem('tp.hidden', JSON.stringify(h)); } catch { } },
+  configured() { return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(settings.syncUrl || ''); },
+  async run(silent = false) {
+    if (!this.configured()) { if (!silent) toast('Configure o endereço do Apps Script em “Google Docs”'); return; }
+    if (this.busy) return; this.busy = true;
+    $('#m-sync').classList.add('busy');
+    try {
+      const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 25000);
+      const res = await fetch(settings.syncUrl + '?action=list&t=' + Date.now(), { signal: ctrl.signal, redirect: 'follow' });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!data || !Array.isArray(data.scripts)) throw new Error(data && data.error ? data.error : 'resposta inesperada');
+      const result = this.apply(data.scripts);
+      settings.lastSync = Date.now(); saveSettings(); List.render();
+      if (!silent || result.changed) toast(result.changed ? `Google Docs: ${result.added} novo(s), ${result.updated} atualizado(s)` : 'Google Docs: nada novo', 2200);
+    } catch (e) {
+      if (!silent) toast('Falha ao sincronizar: ' + (e.name === 'AbortError' ? 'tempo esgotado' : e.message), 4000);
+    } finally { this.busy = false; $('#m-sync').classList.remove('busy'); }
+  },
+  apply(list) {
+    const hidden = this.hidden(); let added = 0, updated = 0, hiddenChanged = false;
+    for (const d of list) {
+      if (!d || !d.id || d.body == null) continue;
+      const id = 'gdoc:' + d.id, updatedAt = +d.updatedAt || Date.now();
+      if (hidden[id]) { if (hidden[id] >= updatedAt) continue; delete hidden[id]; hiddenChanged = true; }
+      const local = scripts.find(s => s.id === id);
+      const body = String(d.body).replace(/\r\n/g, '\n').trim(), title = (d.title || '').trim();
+      if (!local) { scripts.push({ id, title, body, createdAt: updatedAt, updatedAt, source: 'gdocs' }); added++; }
+      else if (updatedAt > (local.syncedAt || 0) && (local.body !== body || local.title !== title)) { local.title = title; local.body = body; local.updatedAt = updatedAt; local.source = 'gdocs'; updated++; }
+      if (local) local.syncedAt = updatedAt; else scripts[scripts.length - 1].syncedAt = updatedAt;
+    }
+    if (hiddenChanged) this.setHidden(hidden);
+    if (added || updated) Store.save(scripts);
+    return { added, updated, changed: !!(added || updated) };
+  },
+  hide(ids) { // roteiro do Docs excluído no app: fica oculto até o documento mudar
+    const h = this.hidden();
+    for (const id of ids) { const s = scripts.find(x => x.id === id); if (s && s.source === 'gdocs') h[id] = s.syncedAt || s.updatedAt || Date.now(); }
+    this.setHidden(h);
+  },
+};
+$('#m-sync').addEventListener('click', () => { menu.classList.add('hidden'); Sync.run(false); });
+$('#m-sync-config').addEventListener('click', () => { menu.classList.add('hidden'); $('#sync-url').value = settings.syncUrl || ''; $('#sheet-sync').classList.remove('hidden'); });
+$('#sync-close').addEventListener('click', () => $('#sheet-sync').classList.add('hidden'));
+$('#sync-save').addEventListener('click', () => {
+  const url = $('#sync-url').value.trim();
+  if (url && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(url)) { toast('Cole o endereço que termina em /exec'); return; }
+  settings.syncUrl = url; saveSettings(); $('#sheet-sync').classList.add('hidden');
+  if (url) Sync.run(false); else toast('Sincronização desligada');
+});
+
 // ---------- início ----------
 List.render();
+if (Sync.configured()) Sync.run(true);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && currentView === 'list' && Sync.configured() && Date.now() - (settings.lastSync || 0) > 60000) Sync.run(true); });
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
   navigator.serviceWorker.register('sw.js').catch(() => { });
 }

@@ -7,11 +7,46 @@ App web instalável (PWA) para iPhone, feito para uso pessoal. Funciona no Safar
 - **Scripts**: lista de roteiros, criar, editar, excluir em lote, importar `.txt`, exportar e restaurar backup `.json`.
 - **Teleprompter**: texto grande em negrito (fonte Jost), linha de leitura com marcador, toque para iniciar/pausar, arraste para reposicionar.
 - **Ajustes**: tamanho da fonte, velocidade, contagem regressiva, estimativa de duração (`~mm:ss`).
-- **Modo voz**: o texto acompanha a sua fala (reconhecimento de voz em pt-BR). Palavras lidas escurecem, a palavra atual fica sublinhada. Tolera palavras puladas e pequenas variações.
+- **Modo voz**: o texto acompanha a sua fala (reconhecimento de voz em pt-BR). Palavras lidas escurecem, a palavra atual fica sublinhada. Tolera palavras puladas e pequenas variações. O ajuste **Antecipação da voz** (0 a 5 palavras, padrão 2) compensa o atraso do reconhecimento: aumente se a marcação ficar atrás da sua fala.
 - **Cores**: cor do texto, espelhar (para vidro de teleprompter), negrito, posição da linha de leitura, margem lateral.
 - **Câmera**: pré-visualização da câmera frontal (pede 4K/60 fps, usa o melhor que o aparelho der), texto no alto perto da lente, botão de gravar, trocar câmera.
-- **Rascunhos de vídeo**: gravações ficam guardadas no aparelho (IndexedDB) com “Salvar / Compartilhar” para as Fotos ou qualquer app.
+- **Rascunhos de vídeo**: gravações ficam guardadas no aparelho (IndexedDB). **Salvar nas Fotos** abre a folha do iOS só com o vídeo, com “Salvar Vídeo” a um toque; **Compartilhar** abre a folha completa. Fora do iPhone, “Salvar” baixa o arquivo.
+- **Google Docs**: os documentos da pasta `Teleprompter` do seu Drive aparecem na lista de roteiros (veja abaixo).
 - Mantém a tela acesa durante a leitura (Wake Lock). Funciona sem internet depois de instalado.
+
+## Onde ficam os roteiros
+
+Os roteiros ficam gravados no próprio iPhone, no armazenamento do Safari para o endereço do app (`localStorage`). Não vão para iCloud nem para servidor. Dois cuidados:
+
+- Instale o app na Tela de Início: para apps instalados, o iOS não apaga esses dados por falta de uso.
+- De tempos em tempos use ⋯ → **Exportar backup (.json)**. Em outro aparelho, **Restaurar backup** traz tudo de volta.
+
+Com a sincronização do Google Docs, o Drive vira a fonte principal dos roteiros, e o app guarda apenas uma cópia local.
+
+## Google Docs → app
+
+Você escreve no Google Docs e o roteiro aparece no app. Funciona assim: um pequeno script no seu Google (Apps Script) lê a pasta **Teleprompter** do seu Drive e entrega o texto ao app. Cada documento da pasta é um roteiro; o nome do documento é o título.
+
+Configuração, uma vez só (uns 5 minutos):
+
+1. Abra <https://script.google.com> logado na sua conta Google e clique em **Novo projeto**. Dê o nome `Teleprompter`.
+2. Apague o conteúdo de `Code.gs`, cole o conteúdo de [`google-apps-script/Code.gs`](google-apps-script/Code.gs) e salve.
+3. Clique em **Implantar → Nova implantação**. Em tipo, escolha **App da Web**. Em "Executar como", **Eu**. Em "Quem pode acessar", **Qualquer pessoa**. Clique em **Implantar** e autorize quando o Google pedir.
+4. Copie o endereço que termina em `/exec`.
+5. No app, ⋯ → **Google Docs: configurar**, cole o endereço e toque em **Salvar e sincronizar**.
+
+Depois disso:
+
+- Crie ou mova documentos para a pasta **Teleprompter** no Drive (o script cria a pasta na primeira vez).
+- O app sincroniza ao abrir e quando volta ao primeiro plano; ⋯ → **Atualizar do Google Docs** força na hora.
+- Roteiros do Docs aparecem com um ícone de documento. Excluir um deles no app só o esconde até o documento mudar no Drive.
+- Editar um roteiro do Docs dentro do app vale só no app; a fonte continua sendo o documento.
+
+**Privacidade**: o endereço `/exec` permite ler os textos dessa pasta a quem o tiver. Não o publique. Para criar roteiros de fora (POST), defina `WRITE_TOKEN` no script.
+
+### Integração com outro sistema (SQV)
+
+O mesmo script aceita `POST` com JSON `{ "token": "...", "title": "...", "body": "..." }` e cria o documento na pasta, que então aparece no app. É o gancho para uma opção "Sincronizar com app" em outro sistema: ao salvar o roteiro lá, basta enviar esse POST para o endereço `/exec`.
 
 ## Arquivos
 
@@ -23,6 +58,7 @@ App web instalável (PWA) para iPhone, feito para uso pessoal. Funciona no Safar
 | `sw.js` | cache para abrir offline |
 | `manifest.webmanifest`, `icons/` | instalação na Tela de Início |
 | `serve.js` | servidor local para testar no Mac |
+| `google-apps-script/Code.gs` | ponte com o Google Docs (cole no Apps Script) |
 
 ## Testar no Mac
 

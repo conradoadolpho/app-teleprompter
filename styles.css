@@ -133,3 +133,11 @@ body.cam-on .toolbar{bottom:calc(var(--sab) + 110px)}
 .drafts .actions{justify-content:flex-start;padding-top:0}
 
 .toast{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--sab) + 100px);background:rgba(28,28,30,.95);color:#fff;padding:12px 18px;border-radius:14px;font-size:15px;z-index:50;max-width:88vw;text-align:center}
+
+/* sincronização */
+.list li .src{width:20px;height:20px;color:var(--muted);flex:none}
+.popover button.busy{opacity:.5;pointer-events:none}
+.sheet.light{color:var(--text);background:var(--card);box-shadow:0 10px 40px rgba(0,0,0,.25);z-index:30}
+.sheet-text{margin:0 0 12px;font-size:15px;color:var(--muted);line-height:1.4}
+.sheet-text code{font-size:13px}
+.field.url{margin:0 0 4px;width:100%;font-size:15px;background:var(--bg)}

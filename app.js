@@ -186,7 +186,7 @@ const Prompter = {
   script: null, tokens: [], spans: [], pos: 0, lastHi: 0,
   playing: false, scrollY: 0, target: null, raf: 0, lastTs: 0,
   voiceOn: false, rec: null, consumed: new Map(), voiceErrors: 0, restartTimer: 0, watchdog: 0, recStarted: false,
-  recent: [], misses: 0, lastProgScroll: 0, scrollSyncTimer: 0,
+  recent: [], misses: 0, pending: -1, lastProgScroll: 0, scrollSyncTimer: 0,
   wakeLock: null, countdownTimer: 0,
   el: { scroller: $('#scroller'), content: $('#content'), prompter: $('#prompter'), line: $('#reading-line') },
 
@@ -299,7 +299,7 @@ const Prompter = {
     const tick = () => { k--; if (k <= 0) { box.classList.add('hidden'); then(); return; } span.textContent = k; this.countdownTimer = setTimeout(tick, 1000); };
     this.countdownTimer = setTimeout(tick, 1000);
   },
-  restart() { this.setPlaying(false); this.scrollY = 0; this.el.scroller.scrollTop = 0; this.lastProgScroll = performance.now(); this.pos = 0; this.target = null; this.recent = []; this.misses = 0; this.highlight(); this.updateEta(); },
+  restart() { this.setPlaying(false); this.scrollY = 0; this.el.scroller.scrollTop = 0; this.lastProgScroll = performance.now(); this.pos = 0; this.target = null; this.recent = []; this.misses = 0; this.pending = -1; this.highlight(); this.updateEta(); },
   nudge(dir) {
     const step = this.el.prompter.clientHeight * 0.3 * dir;
     this.scrollY = Math.max(0, Math.min(this.maxScroll(), this.scrollY + step)); this.el.scroller.scrollTop = this.scrollY; this.lastProgScroll = performance.now();
@@ -366,39 +366,46 @@ const Prompter = {
     }
     return false;
   },
+  // Regra: o leitor pode improvisar fora do roteiro ("não é?", "olha só"…). Nesses momentos o app
+  // simplesmente espera. Só avança quando a fala bate com o roteiro logo à frente.
   consumeWord(w) {
     const T = this.tokens; if (!T.length) return;
     this.recent.push(w); if (this.recent.length > 4) this.recent.shift();
-    const look = w.length <= 2 ? 4 : w.length === 3 ? 8 : 16;
-    for (let j = this.pos; j < Math.min(T.length, this.pos + look); j++) {
-      if (T[j] && this.wordsMatch(w, T[j])) { this.pos = j + 1; this.misses = 0; this.targetToPos(); return; }
-    }
-    // não achou à frente: pode ser ruído, improviso… ou o leitor voltou/pulou no texto
-    this.misses++;
-    if (this.misses >= 2) this.relocate();
-  },
-  // procura as últimas palavras ditas no texto inteiro; entre empates, fica com o trecho mais perto da linha de leitura
-  relocate() {
-    const T = this.tokens, anchor = this.nearestIndexToLine();
-    // tenta as últimas 3 palavras; se não houver trecho igual, as últimas 2
-    for (const len of [3, 2]) {
-      const R = this.recent.slice(-len); if (R.length < 2) continue;
-      if (!R.some(r => r.length >= 4)) continue; // só palavras curtas: ambíguo demais para pular
-      let best = -1, bestDist = Infinity;
-      for (let i = 0; i < T.length; i++) {
-        let k = i, ok = true;
-        for (const r of R) {
-          let found = -1;
-          for (let t = k; t < Math.min(T.length, k + 2); t++) { if (T[t] && this.wordsMatch(r, T[t])) { found = t; break; } }
-          if (found < 0) { ok = false; break; }
-          k = found + 1;
-        }
-        if (!ok) continue;
-        const dist = Math.abs(i - anchor);
-        if (dist < bestDist) { best = k; bestDist = dist; }
+    // salto confirmado: a palavra anterior bateu mais adiante e esta é a seguinte
+    if (this.pending >= 0) {
+      const p = this.pending; this.pending = -1;
+      for (let t = p + 1; t < Math.min(T.length, p + 3); t++) {
+        if (T[t] && this.wordsMatch(w, T[t])) { this.pos = t + 1; this.misses = 0; this.targetToPos(); return; }
       }
-      if (best >= 0) { this.pos = best; this.misses = 0; this.targetToPos(); return; }
     }
+    const look = w.length <= 2 ? 3 : w.length === 3 ? 6 : 16;
+    for (let j = this.pos; j < Math.min(T.length, this.pos + look); j++) {
+      if (!T[j] || !this.wordsMatch(w, T[j])) continue;
+      if (j <= this.pos + 3) { this.pos = j + 1; this.misses = 0; this.targetToPos(); return; }
+      this.pending = j; break; // longe demais para uma palavra só: espera a próxima confirmar
+    }
+    // não bateu: improviso, ruído ou o leitor saiu do roteiro. Espera.
+    this.misses++;
+    if (this.misses >= 6) this.relocate();
+  },
+  // Caso extremo (muitas palavras sem bater): as três últimas palavras ditas aparecem, em sequência,
+  // em UM único lugar do roteiro. Só então o app pula para lá. Em qualquer dúvida, não pula.
+  relocate() {
+    const T = this.tokens, R = this.recent.slice(-3); if (R.length < 3) return;
+    if (R.filter(r => r.length >= 4).length < 2) return; // precisa de pelo menos duas palavras "cheias"
+    const hits = [];
+    for (let i = 0; i < T.length && hits.length < 2; i++) {
+      if (!T[i] || !this.wordsMatch(R[0], T[i])) continue; // a primeira palavra ancora exatamente em i
+      let k = i + 1, ok = true;
+      for (const r of R.slice(1)) {
+        let found = -1;
+        for (let t = k; t < Math.min(T.length, k + 2); t++) { if (T[t] && this.wordsMatch(r, T[t])) { found = t; break; } }
+        if (found < 0) { ok = false; break; }
+        k = found + 1;
+      }
+      if (ok) hits.push(k);
+    }
+    if (hits.length === 1) { this.pos = hits[0]; this.misses = 0; this.targetToPos(); }
   },
   // posição exibida = palavra reconhecida + antecipação (o reconhecimento chega com atraso)
   displayPos() { return Math.min(this.spans.length, this.pos + (settings.voiceLead | 0)); },
@@ -430,7 +437,7 @@ const Prompter = {
     const near = this.nearestIndexToLine();
     this.pos = Math.max(0, near - (settings.voiceLead | 0));
     if (near === 0 || this.scrollY <= 1) this.pos = 0;
-    this.recent = []; this.misses = 0; this.target = null; this.highlight();
+    this.recent = []; this.misses = 0; this.pending = -1; this.target = null; this.highlight();
   },
 
   // ---- toque/arraste no texto ----

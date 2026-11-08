@@ -306,13 +306,23 @@ const Prompter = {
     $$('#swatches button').forEach(b => b.classList.toggle('sel', b.dataset.c === settings.color));
     this.layoutLine();
   },
+  // Deitado no modo câmera, a caixa fica ao lado da câmera: a linha de leitura vai para a altura da lente
+  // (a câmera frontal fica no meio da borda lateral, ou seja, no meio da altura da tela).
+  effectiveLinePos() {
+    if (body.classList.contains('cam-on') && (body.classList.contains('cam-left') || body.classList.contains('cam-right'))) {
+      const r = this.el.prompter.getBoundingClientRect();
+      if (r.height > 0) return Math.max(12, Math.min(70, (window.innerHeight / 2 - r.top) / r.height * 100));
+    }
+    return settings.linePos;
+  },
   layoutLine() { // o texto começa exatamente na linha de leitura
-    const h = this.el.prompter.clientHeight;
-    const pad = Math.round(h * settings.linePos / 100);
+    const h = this.el.prompter.clientHeight, lp = this.effectiveLinePos();
+    this.el.prompter.style.setProperty('--line-pos', lp.toFixed(2) + '%');
+    const pad = Math.round(h * lp / 100);
     this.el.content.style.setProperty('--line-pad', pad + 'px');
     this.el.content.style.paddingBottom = Math.max(200, h - pad) + 'px';
   },
-  lineOffset() { return Math.round(this.el.prompter.clientHeight * settings.linePos / 100); },
+  lineOffset() { return Math.round(this.el.prompter.clientHeight * this.effectiveLinePos() / 100); },
   renderText() {
     const c = this.el.content; c.innerHTML = ''; this.tokens = []; this.spans = [];
     const paragraphs = this.script.body.split(/\n+/);
@@ -630,6 +640,7 @@ $('#btn-side').addEventListener('click', () => {
       const pct = Math.max(28, Math.min(75, (w0 + dx) / window.innerWidth * 100));
       settings.camBoxWidth = Math.round(pct); document.documentElement.style.setProperty('--cam-box-w', settings.camBoxWidth + '%');
     }
+    Prompter.layoutLine();
   };
   const end = () => { saveSettings(); Prompter.layoutLine(); if (Prompter.voiceOn) Prompter.targetToPos(); Prompter.updateEta(); };
   h.addEventListener('touchstart', e => start(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
